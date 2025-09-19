@@ -1,9 +1,18 @@
 import sys
-import argparse
-from reviewer import analyze_code # Reuse our existing Ollama logic
+import json
+import subprocess
+from reviewer import analyze_code
 
-# Keywords to look for in the AI's response to decide if the commit should fail
-VULNERABILITY_KEYWORDS = ["vulnerability", "insecure", "risk", "exploit", "injection", "hardcoded"]
+def get_staged_files():
+    """Asks Git for a list of staged Python files."""
+    try:
+        command = ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"]
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        all_files = result.stdout.strip().split("\n")
+        python_files = [f for f in all_files if f.endswith(".py") and f]
+        return python_files
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return []
 
 def scan_files(file_paths):
     """Scans a list of files and returns True if any are insecure."""
@@ -14,37 +23,42 @@ def scan_files(file_paths):
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            
-            # If the file is empty, skip it
             if not content.strip():
                 continue
 
-            analysis_result = analyze_code(content).lower()
+            analysis_result = analyze_code(content, response_type='json')
             
-            # Check if any of our keywords are in the AI's response
-            if any(keyword in analysis_result for keyword in VULNERABILITY_KEYWORDS):
-                print(f"\n🚨 INSECURE CODE DETECTED IN {file_path} 🚨")
-                print("--- AI Analysis ---")
-                print(analysis_result)
-                print("---------------------")
-                insecure_files_found += 1
-            else:
+            is_definitely_secure = False
+            if isinstance(analysis_result, dict):
+                if analysis_result.get('isSecure') is True:
+                    is_definitely_secure = True
+            
+            if is_definitely_secure:
                 print(f"✅ Code appears secure.")
-
+            else:
+                # EMOJI REMOVED FROM THIS LINE
+                print(f"\n*** POTENTIAL INSECURITY DETECTED IN {file_path} ***")
+                reason = analysis_result.get('reason', 'AI failed to provide a valid reason.') if isinstance(analysis_result, dict) else str(analysis_result)
+                print(f"--- AI Analysis ---\n{reason}\n---------------------")
+                insecure_files_found += 1
         except Exception as e:
-            print(f"Error scanning file {file_path}: {e}")
+            print(f"An unexpected error occurred while scanning {file_path}: {e}")
+            insecure_files_found += 1
     
     return insecure_files_found > 0
 
 if __name__ == "__main__":
-    # The pre-commit framework passes the staged files as arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('files', nargs='*')
-    args = parser.parse_args()
+    staged_files = get_staged_files()
+    
+    if not staged_files:
+        print("No staged Python files to scan.")
+        sys.exit(0)
+    
+    print(f"Files to scan: {', '.join(staged_files)}")
 
-    if scan_files(args.files):
-        print("\nCOMMIT REJECTED: Insecure code found. Please fix the issues above before committing.")
-        sys.exit(1) # Exit with a non-zero status to block the commit
+    if scan_files(staged_files):
+        print("\nCOMMIT REJECTED: Insecure code or an analysis error was detected.")
+        sys.exit(1)
     else:
         print("\nCOMMIT ACCEPTED: All scanned files passed the security check.")
-        sys.exit(0) # Exit with zero to allow the commit
+        sys.exit(0)
