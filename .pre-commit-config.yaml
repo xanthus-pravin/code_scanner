@@ -1,0 +1,11 @@
+repos:
+-   repo: local
+    hooks:
+    -   id: ai-security-scan
+        name: AI Security Code Scanner
+        entry: python git_hook_scanner.py
+        language: python
+        # This ensures the hook only runs on Python files
+        types: [python]
+        # We need the dependencies for our script
+        additional_dependencies: [requests]
