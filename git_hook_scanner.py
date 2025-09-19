@@ -48,7 +48,7 @@ def scan_files(file_paths):
             if is_definitely_secure:
                 print(f"✅ Code appears secure.")
             else:
-                print(f"\n*** POTENTIAL INSECURITY DETECTED IN {file_path} ***")
+                print(f"\n***❌ POTENTIAL INSECURITY DETECTED IN {file_path} ***")
                 reason = analysis_result.get('reason', 'AI failed to provide a valid reason.') if isinstance(analysis_result, dict) else str(analysis_result)
                 print(f"--- AI Analysis ---\n{reason}\n---------------------")
                 insecure_files_found += 1
