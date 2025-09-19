@@ -6,7 +6,7 @@ def check_user_credentials(username, password):
     
     # VULNERABILITY: The username is inserted directly into the query string.
     # An attacker could use the username "' OR '1'='1" to log in as any user.
-    # testing asda tasasdasd sdsd as huuuh zxx
+    # testing asda tasasdasd sdsd as huuuh zxxsds
     query = f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'"
     cursor.execute(query)
     
