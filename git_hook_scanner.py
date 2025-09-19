@@ -3,6 +3,13 @@ import json
 import subprocess
 from reviewer import analyze_code
 
+# --- CONFIGURATION ---
+# Define the list of files to skip at the top of the script.
+SKIP_FILES = [
+    "git_hook_scanner.py",
+    "reviewer.py"
+]
+
 def get_staged_files():
     """Asks Git for a list of staged Python files."""
     try:
@@ -19,6 +26,11 @@ def scan_files(file_paths):
     insecure_files_found = 0
     
     for file_path in file_paths:
+        # --- NEW LOGIC: Check if the file should be skipped ---
+        if file_path in SKIP_FILES:
+            print(f"\n--- Skipping {file_path} (in skip list) ---")
+            continue # Move to the next file in the loop
+
         print(f"\n--- Scanning {file_path} ---")
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -36,7 +48,6 @@ def scan_files(file_paths):
             if is_definitely_secure:
                 print(f"✅ Code appears secure.")
             else:
-                # EMOJI REMOVED FROM THIS LINE
                 print(f"\n*** POTENTIAL INSECURITY DETECTED IN {file_path} ***")
                 reason = analysis_result.get('reason', 'AI failed to provide a valid reason.') if isinstance(analysis_result, dict) else str(analysis_result)
                 print(f"--- AI Analysis ---\n{reason}\n---------------------")
@@ -51,11 +62,11 @@ if __name__ == "__main__":
     staged_files = get_staged_files()
     
     if not staged_files:
-        print("No staged Python files to scan.")
+        print("No staged Python files found in this commit.")
         sys.exit(0)
     
-    print(f"Files to scan: {', '.join(staged_files)}")
-
+    # The main block no longer needs to filter the list.
+    # It passes all staged python files directly to the scanner.
     if scan_files(staged_files):
         print("\nCOMMIT REJECTED: Insecure code or an analysis error was detected.")
         sys.exit(1)
